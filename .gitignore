@@ -30,7 +30,8 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files (secrets such as GOOGLE_MAPS_API_KEY) - see .env.example
+.env
 .env*.local
 
 # typescript
