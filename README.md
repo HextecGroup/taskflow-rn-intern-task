@@ -16,7 +16,7 @@ TaskFlow is a production-style, offline-first task manager built with **Expo SDK
 3. [Why these choices](#why-these-choices)
 4. [Getting started](#getting-started)
 5. [Demo walkthrough (for the video)](#demo-walkthrough-for-the-video)
-6. [Building the APK (EAS)](#building-the-apk-eas)
+6. [Building the APK](#building-the-apk)
 7. [Architecture](#architecture)
 8. [Quality: type-checking, linting, tests](#quality-type-checking-linting-tests)
 9. [Known limitations & trade-offs](#known-limitations--trade-offs)
@@ -108,9 +108,18 @@ The equivalent raw command is `npx json-server --watch db.json --host 0.0.0.0 --
 
 ```bash
 npm start               # then press "a" (Android), "i" (iOS) or scan the QR code with Expo Go
-npm run android         # shortcut: open on a connected Android device/emulator
-npm run ios             # shortcut: open on the iOS simulator (macOS)
 ```
+
+Expo Go is enough for everything in the demo. To compile the native app instead (required for
+a Google Maps key, and the closest thing to the shipped APK):
+
+```bash
+npm run android         # npx expo run:android - prebuilds, compiles and installs on a device/emulator
+npm run ios             # npx expo run:ios - same on the iOS simulator (macOS)
+```
+
+`expo run:*` generates the `android/` (or `ios/`) folder on first use. Those folders are generated
+output and stay git-ignored; `npx expo prebuild --clean` regenerates them from `app.config.ts`.
 
 ### 4. Connecting the app to the server
 
@@ -129,13 +138,15 @@ The app picks a sensible default automatically. You can override it in **Setting
 
 | Script | Description |
 |---|---|
-| `npm start` | Expo dev server |
+| `npm start` | Expo dev server (Expo Go) |
+| `npm run android` / `ios` | Local native build + install (`expo run:*`) |
 | `npm run server` / `server:reset` | json-server mock backend (reset restores the seed data) |
 | `npm run typecheck` | `tsc --noEmit` (strict) |
 | `npm run lint` | ESLint with Expo's config (includes React Compiler rules) |
 | `npm test` | Jest unit and integration tests |
 | `npm run verify` | typecheck + lint + tests |
-| `npm run build:apk` | `eas build -p android --profile preview` |
+| `npm run build:apk` | Cloud APK via `eas build -p android --profile preview` |
+| `npm run build:apk:local` | Local release APK (prebuild + `gradlew assembleRelease`) |
 
 ---
 
@@ -154,7 +165,9 @@ The app picks a sensible default automatically. You can override it in **Setting
 
 ---
 
-## Building the APK (EAS)
+## Building the APK
+
+### Option A - EAS Build (recommended for the submission)
 
 ```bash
 npm install -g eas-cli
@@ -173,6 +186,21 @@ eas build -p android --profile preview
   `app.config.ts` passes the key to the `react-native-maps` config plugin. If a build is made **without** a key, the app detects it (`services/mapAvailability.ts`). It then shows a "Map unavailable" notice and a list of located tasks instead of rendering a MapView, so the APK does not crash. Build with a key for the demo.
 - **Server URL in the APK.** Enter the LAN URL in *Settings → Sync & server*, or bake in a default with `EXPO_PUBLIC_API_URL` (for example `http://192.168.1.10:3000`) as an EAS environment variable.
 - Cleartext HTTP to the json-server is enabled for release builds through `expo-build-properties` (`usesCleartextTraffic`).
+
+### Option B - local build (no EAS account)
+
+```bash
+npx expo prebuild -p android --clean     # regenerate android/ from app.config.ts
+npx expo run:android --variant release   # build + install on a connected device
+# or, without a device attached:
+cd android && ./gradlew assembleRelease
+# APK: android/app/build/outputs/apk/release/app-release.apk
+```
+
+Requires a local Android SDK and JDK 17. The release variant is signed with the template's
+**debug keystore**, which is fine for side-loading and demos but not for Play Store submission.
+`GOOGLE_MAPS_API_KEY` must be exported (or present in `.env`) *before* `prebuild`, because the
+key is written into the generated manifest; without it the APK shows the map fallback.
 
 ---
 
