@@ -1,0 +1,53 @@
+{
+  "tasks": [
+    {
+      "id": "3f6b2c1e-9a4d-4c8e-8f21-0b7a5d2e9c01",
+      "title": "Onboard new distributor (from server)",
+      "description": "Seeded in db.json on the json-server. It appears on the device after the first sync, demonstrating the pull path.",
+      "dueDate": "2026-12-15T09:30:00.000Z",
+      "location": {
+        "address": "Mirzo Ulugbek district, Tashkent",
+        "coordinates": { "latitude": 41.3385, "longitude": 69.3346 }
+      },
+      "attachments": [],
+      "status": "new",
+      "statusHistory": [{ "from": null, "to": "new", "changedAt": "2026-09-01T08:00:00.000Z" }],
+      "createdAt": "2026-09-01T08:00:00.000Z",
+      "updatedAt": "2026-09-01T08:00:00.000Z"
+    },
+    {
+      "id": "8c1d7e42-5b3a-4f6e-9d10-2a4b6c8e0f02",
+      "title": "Prepare regional price catalogue (from server)",
+      "description": "Update wholesale prices for the Samarkand and Bukhara regions and share the PDF with the sales team.",
+      "dueDate": "2026-12-20T13:00:00.000Z",
+      "location": {
+        "address": "Registan Square, Samarkand",
+        "coordinates": { "latitude": 39.6547, "longitude": 66.9758 }
+      },
+      "attachments": [],
+      "status": "in_progress",
+      "statusHistory": [
+        { "from": null, "to": "new", "changedAt": "2026-09-02T09:00:00.000Z" },
+        { "from": "new", "to": "in_progress", "changedAt": "2026-09-03T10:15:00.000Z" }
+      ],
+      "createdAt": "2026-09-02T09:00:00.000Z",
+      "updatedAt": "2026-09-03T10:15:00.000Z"
+    },
+    {
+      "id": "c5e9a0b3-7d2f-4a18-b6c4-3e5f7a9b1d03",
+      "title": "Collect signed NDA (from server)",
+      "description": "Pick up the signed NDA from the legal department. Address only, no coordinates, so it is listed but not pinned on the map.",
+      "dueDate": "2026-12-01T07:00:00.000Z",
+      "location": { "address": "Yunusabad district, Tashkent", "coordinates": null },
+      "attachments": [],
+      "status": "completed",
+      "statusHistory": [
+        { "from": null, "to": "new", "changedAt": "2026-09-04T06:30:00.000Z" },
+        { "from": "new", "to": "in_progress", "changedAt": "2026-09-05T08:00:00.000Z" },
+        { "from": "in_progress", "to": "completed", "changedAt": "2026-09-06T12:45:00.000Z" }
+      ],
+      "createdAt": "2026-09-04T06:30:00.000Z",
+      "updatedAt": "2026-09-06T12:45:00.000Z"
+    }
+  ]
+}
