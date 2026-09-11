@@ -1,18 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Platform, StyleSheet, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import { StyleSheet, View } from 'react-native';
 import { Button, Icon, IconButton, Surface, Text } from 'react-native-paper';
 
-import { MapUnavailable } from '../components/MapUnavailable';
 import { TaskCard } from '../components/TaskCard';
+import { MapCanvas, type MapCanvasHandle, type MapPin } from '../components/map/MapCanvas';
 import { useNow } from '../hooks/useNow';
 import { useVisibleTasks } from '../hooks/useTasks';
 import type { MainTabScreenProps } from '../navigation/types';
 import { getCurrentCoordinates } from '../services/locationService';
-import { MAP_AVAILABLE } from '../services/mapAvailability';
 import { notify } from '../store/uiStore';
 import { useAppTheme } from '../theme';
-import { darkMapStyle } from '../theme/mapStyles';
 import type { GeoCoordinates, Task } from '../types';
 import { TASK_STATUSES } from '../types';
 import { DEFAULT_MAP_CENTER } from '../utils/constants';
@@ -26,45 +23,10 @@ const isMapped = (task: Task): task is MappedTask => task.location.coordinates !
 
 const FIT_PADDING = { top: 140, right: 60, bottom: 260, left: 60 };
 
-export function MapScreen(props: MainTabScreenProps<'Map'>) {
-  return MAP_AVAILABLE ? <TaskMap {...props} /> : <MapFallback {...props} />;
-}
-
-/** Without a Google Maps key (Android builds only) list the located tasks instead of crashing. */
-function MapFallback({ navigation }: MainTabScreenProps<'Map'>) {
+export function MapScreen({ navigation, route }: MainTabScreenProps<'Map'>) {
   const theme = useAppTheme();
   const tasks = useVisibleTasks();
-  const now = useNow();
-  const mapped = useMemo(() => tasks.filter(isMapped), [tasks]);
-
-  return (
-    <FlatList
-      style={{ backgroundColor: theme.colors.background }}
-      contentContainerStyle={styles.fallbackContent}
-      data={mapped}
-      keyExtractor={(task) => task.id}
-      renderItem={({ item }) => (
-        <TaskCard
-          task={item}
-          now={now}
-          compact
-          onPress={() => navigation.navigate('TaskDetails', { taskId: item.id })}
-        />
-      )}
-      ListHeaderComponent={<MapUnavailable />}
-      ListEmptyComponent={
-        <Text variant="bodySmall" style={[styles.center, { color: theme.colors.onSurfaceVariant }]}>
-          No tasks with coordinates yet.
-        </Text>
-      }
-    />
-  );
-}
-
-function TaskMap({ navigation, route }: MainTabScreenProps<'Map'>) {
-  const theme = useAppTheme();
-  const tasks = useVisibleTasks();
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<MapCanvasHandle>(null);
   const didInitialFit = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -75,6 +37,18 @@ function TaskMap({ navigation, route }: MainTabScreenProps<'Map'>) {
   const mapped = useMemo(() => tasks.filter(isMapped), [tasks]);
   const unmappedCount = tasks.length - mapped.length;
   const focusTaskId = route.params?.focusTaskId;
+
+  const pins = useMemo<MapPin[]>(
+    () =>
+      mapped.map((task) => ({
+        id: task.id,
+        coordinates: task.location.coordinates,
+        color: theme.custom.status[task.status],
+        title: task.title,
+        description: `${STATUS_LABELS[task.status]} · ${formatShortDateTime(task.dueDate)} — tap for details`,
+      })),
+    [mapped, theme],
+  );
 
   // "Open in map" from the details screen selects the task. Derived during render
   // (React's recommended alternative to syncing state inside an effect).
@@ -89,12 +63,12 @@ function TaskMap({ navigation, route }: MainTabScreenProps<'Map'>) {
     if (!map || mapped.length === 0) return;
     const [first] = mapped;
     if (mapped.length === 1 && first) {
-      map.animateToRegion({ ...first.location.coordinates, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 400);
+      map.moveTo(first.location.coordinates, 0.02, 400);
       return;
     }
-    map.fitToCoordinates(
+    map.fitTo(
       mapped.map((task) => task.location.coordinates),
-      { edgePadding: FIT_PADDING, animated: true },
+      FIT_PADDING,
     );
   }, [mapped]);
 
@@ -111,10 +85,7 @@ function TaskMap({ navigation, route }: MainTabScreenProps<'Map'>) {
     const task = mapped.find((item) => item.id === focusTaskId);
     if (task) {
       didInitialFit.current = true;
-      mapRef.current?.animateToRegion(
-        { ...task.location.coordinates, latitudeDelta: 0.015, longitudeDelta: 0.015 },
-        500,
-      );
+      mapRef.current?.moveTo(task.location.coordinates, 0.015, 500);
     }
     navigation.setParams({ focusTaskId: undefined });
   }, [mapReady, focusTaskId, mapped, navigation]);
@@ -131,40 +102,22 @@ function TaskMap({ navigation, route }: MainTabScreenProps<'Map'>) {
       return;
     }
     setShowsUserLocation(true);
-    mapRef.current?.animateToRegion({ ...result.value, latitudeDelta: 0.03, longitudeDelta: 0.03 }, 500);
+    mapRef.current?.moveTo(result.value, 0.03, 500);
   };
 
   return (
     <View style={styles.container}>
-      <MapView
+      <MapCanvas
         ref={mapRef}
-        style={StyleSheet.absoluteFill}
-        initialRegion={{ ...DEFAULT_MAP_CENTER, latitudeDelta: 0.12, longitudeDelta: 0.12 }}
-        onMapReady={() => setMapReady(true)}
-        onPress={(event) => {
-          // Android reports marker taps to the map as well.
-          if ((event.nativeEvent as { action?: string }).action === 'marker-press') return;
-          setSelectedId(null);
-        }}
-        customMapStyle={Platform.OS === 'android' && theme.dark ? darkMapStyle : undefined}
-        userInterfaceStyle={theme.dark ? 'dark' : 'light'}
+        initialCenter={DEFAULT_MAP_CENTER}
+        initialSpan={0.12}
+        pins={pins}
         showsUserLocation={showsUserLocation}
-        showsMyLocationButton={false}
-        toolbarEnabled={false}
-      >
-        {mapped.map((task) => (
-          <Marker
-            key={`${task.id}-${task.status}`}
-            identifier={task.id}
-            coordinate={task.location.coordinates}
-            title={task.title}
-            description={`${STATUS_LABELS[task.status]} · ${formatShortDateTime(task.dueDate)} — tap for details`}
-            pinColor={theme.custom.status[task.status]}
-            onPress={() => setSelectedId(task.id)}
-            onCalloutPress={() => openDetails(task.id)}
-          />
-        ))}
-      </MapView>
+        onReady={() => setMapReady(true)}
+        onPress={() => setSelectedId(null)}
+        onPinPress={setSelectedId}
+        onPinCalloutPress={openDetails}
+      />
 
       <Surface elevation={2} style={[styles.summary, { backgroundColor: theme.colors.surface }]}>
         <View style={styles.summaryRow}>
@@ -283,9 +236,5 @@ const styles = StyleSheet.create({
   },
   center: {
     textAlign: 'center',
-  },
-  fallbackContent: {
-    padding: 16,
-    gap: 10,
   },
 });

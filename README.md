@@ -33,7 +33,7 @@ TaskFlow is a production-style, offline-first task manager built with **Expo SDK
 | 3 | **Status & history log** | Workflow transitions (New → In Progress → Completed / Cancelled, plus *reopen* / *restore*). Each task keeps its own `statusHistory`. A global persisted **History Log** records `created`, `updated`, `status_changed`, `attachment_changed`, `deleted` and `synced` entries (`timestamp`, `action_type`, `description`), grouped by day and filterable by action type. |
 | 4 | **Attachments** | Photo library (multi-select), camera and document picker (PDF/images). Files are **copied into the app's private document directory**, so they survive restarts and cache clearing. Only a relative file name is stored and resolved at runtime, which survives sandbox path changes. Thumbnails and a full-screen viewer; PDFs open via the system "Open with…" sheet. Missing files show *Missing file*; undecodable images show *Corrupted*. Orphaned files from discarded forms are cleaned up. |
 | 5 | **Notifications & demo mode** | A local notification is scheduled **30 minutes before the due time** (or at the due time if that is less than 30 minutes away). It is rescheduled when the due date or status changes and cancelled when the task is completed, cancelled or deleted. **“Trigger Test Notification (30s)”** is available in **Settings** and on every **task details** screen. Tapping a notification opens the task, including on cold start. Permissions are requested lazily and handled gracefully, with an "Open settings" shortcut when blocked. |
-| 6 | **Map & location** | Manual address, **pick on an interactive map** (tap or drag the pin), *My location*, or *From address* (geocoding), plus manual lat/lng fields. The **Map tab** shows a colour-coded pin per task with a legend and *fit all*. Tapping a pin selects the task (bottom card); tapping the callout or *Open details* navigates to it. There is also an *Open in maps app* action. |
+| 6 | **Map & location** | Manual address, **pick on an interactive map** (tap to place the pin), *My location*, or *From address* (geocoding), plus manual lat/lng fields. The **Map tab** shows a colour-coded pin per task with a legend and *fit all*. Tapping a pin selects the task (bottom card); tapping the callout or *Open details* navigates to it. There is also an *Open in maps app* action. |
 | 7 | **Offline & sync** | Full CRUD offline. Per-task sync state **Pending Sync / Synced / Sync Failed**. NetInfo connectivity detection with an offline banner. Automatic sync after each change (debounced), on reconnect, on app foreground and on pull-to-refresh or *Sync now*. **Last-Write-Wins** conflict resolution with delete tombstones. The server URL is auto-detected and configurable in Settings. |
 | 8 | **Architecture & quality** | `src/{screens,components,hooks,services,store,types,utils,theme,navigation}`. UI is separated from logic through hooks and services. Strict TypeScript models, Light/Dark/System theme available everywhere (sun/moon toggle in every header). ESLint (Expo + React Compiler rules) and a 49-test Jest suite. |
 
@@ -47,7 +47,7 @@ TaskFlow is a production-style, offline-first task manager built with **Expo SDK
 | State | Zustand 5 (+ `persist` middleware) |
 | Persistence | `@react-native-async-storage/async-storage` (tasks, history, settings, sync meta); `expo-file-system` (attachment files) |
 | UI | React Native Paper 5 (Material 3) with custom light & dark themes; React Navigation 7 (bottom tabs + native stack) |
-| Maps / location | `react-native-maps`, `expo-location` |
+| Maps / location | `react-native-maps` (Expo Go, iOS, Android with a Google key); `@maplibre/maplibre-react-native` with free [OpenFreeMap](https://openfreemap.org) tiles (Android builds without a key); `expo-location` |
 | Notifications | `expo-notifications` |
 | Attachments | `expo-image-picker`, `expo-document-picker`, `expo-sharing` |
 | Network | `@react-native-community/netinfo`, `fetch` with timeouts |
@@ -65,6 +65,7 @@ TaskFlow is a production-style, offline-first task manager built with **Expo SDK
 - **expo-file-system for attachments.** Picked files are copied into the app's document directory, because picker and cache URIs can be cleared by the OS.
 - **React Navigation (bottom tabs + native stack).** Typed route params and explicit screen components that map one-to-one to the `screens/` folder.
 - **react-native-maps.** Suggested by the assignment; works in Expo Go and uses Apple Maps on iOS.
+- **MapLibre + OpenFreeMap for keyless Android builds.** Google Maps on Android needs an API key, and Google only issues one after a billing account with a payment card is set up, which wasn't available for this project. Android builds without a key therefore render with MapLibre and OpenFreeMap tiles, which need no key or account. Both renderers sit behind one `MapCanvas` component, so screens don't know which one is in use.
 - **json-server 0.17.4.** The stable line (1.x is still beta and changes route semantics). Full REST with `PUT`/`DELETE`, and `--watch` lets you hand-edit `db.json` to demonstrate conflicts.
 - **Last-Write-Wins sync.** Predictable and easy to reason about. Delete tombstones and in-flight edit guards cover its most common failure modes: deleted tasks coming back, and edits lost during a sync.
 
@@ -160,7 +161,7 @@ The app picks a sensible default automatically. You can override it in **Setting
 6. **Notifications**: tap **Trigger Test Notification (30s)**, send the app to the background and wait for the notification. Tapping it opens the task.
 7. **Offline**: enable airplane mode, then create or edit tasks. They show **Pending Sync** and an offline banner appears. Disable airplane mode; the app syncs automatically, the badges turn **Synced** and a `synced` entry appears in History.
 8. **Last-Write-Wins conflict**: edit a task's `title` in `db.json` and set its `updatedAt` to a later timestamp. Pull to refresh in the app. The newer server version wins and History records the resolved conflict.
-9. **Map**: open the Map tab, tap a pin, then open details from the bottom card or the callout.
+9. **Map**: open the Map tab, tap a pin, then open details from the bottom card (or the callout on Google/Apple maps).
 10. **Theme**: tap the sun/moon icon in any header, or choose System / Light / Dark in Settings.
 
 ---
@@ -176,14 +177,14 @@ eas build -p android --profile preview
 ```
 
 - The `preview` profile in `eas.json` produces an installable **`.apk`** (`"buildType": "apk"`, internal distribution). The first build asks to create the EAS project and generate an Android keystore; accept both.
-- **Google Maps key (required for maps in the APK).** Google Maps on Android will not render without a key; Expo Go and iOS don't need one. Create a key in Google Cloud Console with *Maps SDK for Android* enabled (ideally restricted to the package `com.aarn9722.taskflow`), and provide it at build time. Never commit it.
+- **Google Maps key (optional).** Without a key, the APK renders maps with MapLibre and free OpenFreeMap tiles, so no key is needed. To use Google Maps instead, create a key in Google Cloud Console with *Maps SDK for Android* enabled (ideally restricted to the package `com.aarn9722.taskflow`), and provide it at build time. Never commit it.
   - **EAS cloud build:** git-ignored `.env` files are not uploaded, so store the key as an EAS environment variable:
     ```bash
     eas env:create --environment preview --name GOOGLE_MAPS_API_KEY --value <your-key> --visibility sensitive
     ```
   - **Local native build** (`npx expo run:android`): put the key in `.env` (copied from `.env.example`).
 
-  `app.config.ts` passes the key to the `react-native-maps` config plugin. If a build is made **without** a key, the app detects it (`services/mapAvailability.ts`). It then shows a "Map unavailable" notice and a list of located tasks instead of rendering a MapView, so the APK does not crash. Build with a key for the demo.
+  `app.config.ts` passes the key to the `react-native-maps` config plugin. `services/mapAvailability.ts` picks the renderer at runtime: Google Maps when the build has a key (and always in Expo Go and on iOS), MapLibre otherwise.
 - **Server URL in the APK.** Enter the LAN URL in *Settings → Sync & server*, or bake in a default with `EXPO_PUBLIC_API_URL` (for example `http://192.168.1.10:3000`) as an EAS environment variable.
 - Cleartext HTTP to the json-server is enabled for release builds through `expo-build-properties` (`usesCleartextTraffic`).
 
@@ -200,7 +201,7 @@ cd android && ./gradlew assembleRelease
 Requires a local Android SDK and JDK 17. The release variant is signed with the template's
 **debug keystore**, which is fine for side-loading and demos but not for Play Store submission.
 `GOOGLE_MAPS_API_KEY` must be exported (or present in `.env`) *before* `prebuild`, because the
-key is written into the generated manifest; without it the APK shows the map fallback.
+key is written into the generated manifest; without it the APK uses the MapLibre/OpenFreeMap map.
 
 ---
 
@@ -212,6 +213,7 @@ src/
 ├── navigation/             # Root stack + bottom tabs, typed params, navigation ref for deep links
 ├── screens/                # TaskList, TaskDetails, TaskForm, Map, History, Settings  (UI only)
 ├── components/             # Reusable presentational components (TaskCard, DateTimeField, AttachmentTile, …)
+│   └── map/                #   MapCanvas: one map API over react-native-maps and MapLibre
 ├── hooks/                  # UI ↔ logic glue: useTaskForm, useTasks, useBackgroundSync, useNotificationSetup, …
 ├── services/               # Side effects & use cases
 │   ├── taskService.ts      #   create / update / changeStatus / delete (history + reminders + sync in one place)
@@ -221,7 +223,7 @@ src/
 │   ├── attachmentService.ts
 │   ├── locationService.ts
 │   ├── serverConfig.ts     #   server URL auto-detection / override
-│   ├── mapAvailability.ts  #   detects Android builds without a Maps key (fallback UI instead of a crash)
+│   ├── mapAvailability.ts  #   picks the map renderer (react-native-maps, or MapLibre in Android builds without a key)
 │   ├── storage.ts          #   AsyncStorage adapter for Zustand persist (single swap point for MMKV)
 │   └── demoData.ts
 ├── store/                  # Zustand stores: tasks, history, settings, sync, ui (snackbar)
@@ -344,7 +346,7 @@ npm run verify     # tsc --noEmit && expo lint && jest
 - **Attachment binaries are not uploaded.** Only metadata is synced (json-server has no file storage). Tasks pulled on another device show a graceful *Missing file* placeholder.
 - **Mock backend.** json-server has no authentication or server-side validation, and uses plain HTTP. Cleartext traffic (Android) and ATS arbitrary loads (iOS) are enabled only to reach it and would be removed in production.
 - **Notifications are local only** (no push server). Android may defer exact timing under battery optimisation (`SCHEDULE_EXACT_ALARM` is declared), and iOS keeps at most 64 pending notifications. In Expo Go on Android, *remote* push is unavailable since SDK 53, but local notifications (everything used here) work.
-- **Maps.** Standalone Android builds need a Google Maps API key (`GOOGLE_MAPS_API_KEY`); Expo Go does not, and iOS uses Apple Maps. A build made without a key falls back to a list of located tasks instead of a map. Geocoding uses the platform geocoder, requires location permission and network, and may return no result.
+- **Maps.** No Google Cloud billing account (it requires a payment card) was available for this project, so the Android APK is built without a Google Maps key and renders maps with MapLibre and the free, public OpenFreeMap tile service, which has no SLA. In that renderer pins are placed by tapping (they can't be dragged) and there are no native callouts; the bottom task card covers both. Expo Go and iOS keep react-native-maps. Map tiles need a network connection. Geocoding uses the platform geocoder, requires location permission and network, and may return no result.
 - **PDF preview.** PDFs open in the system viewer via the share sheet rather than rendering inline. This keeps the app Expo Go-compatible without an extra native PDF module.
 - **AsyncStorage over MMKV.** Chosen for Expo Go compatibility. Each store is serialised as one JSON document, which is fine for hundreds of tasks. For large datasets, swap in MMKV or SQLite behind `services/storage.ts`.
 - **Scope.** Single user, no pagination; the history log keeps the latest 500 entries. Web is not a target platform.

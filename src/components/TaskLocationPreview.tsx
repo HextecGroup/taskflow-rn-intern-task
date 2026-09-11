@@ -1,13 +1,10 @@
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
 
-import { MAP_AVAILABLE } from '../services/mapAvailability';
 import { useAppTheme } from '../theme';
 import { withAlpha } from '../theme/colors';
-import { MapUnavailable } from './MapUnavailable';
-import { darkMapStyle } from '../theme/mapStyles';
 import type { GeoCoordinates, TaskStatus } from '../types';
+import { MapCanvas } from './map/MapCanvas';
 
 interface TaskLocationPreviewProps {
   coordinates: GeoCoordinates;
@@ -18,7 +15,6 @@ interface TaskLocationPreviewProps {
 /** Non-interactive mini map; tapping it opens the full Map tab focused on the task. */
 export function TaskLocationPreview({ coordinates, status, onPress }: TaskLocationPreviewProps) {
   const theme = useAppTheme();
-  if (!MAP_AVAILABLE) return <MapUnavailable compact />;
   return (
     <Pressable
       onPress={onPress}
@@ -27,20 +23,12 @@ export function TaskLocationPreview({ coordinates, status, onPress }: TaskLocati
       style={[styles.container, { borderColor: theme.colors.outlineVariant }]}
     >
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <MapView
-          style={StyleSheet.absoluteFill}
-          liteMode
-          initialRegion={{ ...coordinates, latitudeDelta: 0.012, longitudeDelta: 0.012 }}
-          scrollEnabled={false}
-          zoomEnabled={false}
-          rotateEnabled={false}
-          pitchEnabled={false}
-          toolbarEnabled={false}
-          customMapStyle={Platform.OS === 'android' && theme.dark ? darkMapStyle : undefined}
-          userInterfaceStyle={theme.dark ? 'dark' : 'light'}
-        >
-          <Marker coordinate={coordinates} pinColor={theme.custom.status[status]} />
-        </MapView>
+        <MapCanvas
+          preview
+          initialCenter={coordinates}
+          initialSpan={0.012}
+          pins={[{ id: 'task', coordinates, color: theme.custom.status[status] }]}
+        />
       </View>
       <View style={[styles.hint, { backgroundColor: withAlpha(theme.colors.inverseSurface, 0.85) }]}>
         <Icon source="map-search-outline" size={14} color={theme.colors.inverseOnSurface} />

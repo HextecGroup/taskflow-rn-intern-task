@@ -3,7 +3,8 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 /**
  * Dynamic Expo config.
  * Build-time environment variables (local: copy .env.example to .env; EAS: `eas env:create`):
- *  - GOOGLE_MAPS_API_KEY  - required for maps in standalone Android builds (not needed in Expo Go or on iOS).
+ *  - GOOGLE_MAPS_API_KEY  - optional: Google Maps in Android builds. Without it, Android builds render free
+ *                           MapLibre/OpenFreeMap maps (not needed in Expo Go or on iOS).
  *  - EXPO_PUBLIC_API_URL  - default json-server URL baked into the build (can still be changed in Settings).
  */
 const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
@@ -69,10 +70,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     ['react-native-maps', googleMapsApiKey ? { androidGoogleMapsApiKey: googleMapsApiKey } : {}],
+    '@maplibre/maplibre-react-native',
   ],
   extra: {
     candidateCode: 'AA-RN-9722',
-    // Only a flag, never the key itself: lets Android builds without a key show a map fallback instead of crashing.
+    // Only a flag, never the key itself: Android builds without a key render maps with MapLibre instead of Google Maps.
     googleMapsApiKeyConfigured: Boolean(googleMapsApiKey),
   },
 });

@@ -17,3 +17,9 @@ export const darkMapStyle: MapStyleElement[] = [
   { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0f1624' }] },
   { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#4e5d78' }] },
 ];
+
+/** Free OpenFreeMap vector styles (no API key) used by the MapLibre renderer. */
+export const OPEN_FREE_MAP_STYLES = {
+  light: 'https://tiles.openfreemap.org/styles/liberty',
+  dark: 'https://tiles.openfreemap.org/styles/dark',
+} as const;

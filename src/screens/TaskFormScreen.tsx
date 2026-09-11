@@ -14,7 +14,6 @@ import { StatusSelector } from '../components/StatusSelector';
 import { useTaskForm } from '../hooks/useTaskForm';
 import type { RootStackScreenProps } from '../navigation/types';
 import { geocodeAddress, getCurrentCoordinates, reverseGeocode } from '../services/locationService';
-import { MAP_AVAILABLE } from '../services/mapAvailability';
 import { notify } from '../store/uiStore';
 import { useAppTheme } from '../theme';
 import type { Attachment } from '../types';
@@ -216,19 +215,17 @@ export function TaskFormScreen({ route, navigation }: RootStackScreenProps<'Task
           </View>
 
           <View style={styles.row}>
-            {MAP_AVAILABLE ? (
-              <Button
-                compact
-                mode="outlined"
-                icon="map-marker-radius-outline"
-                onPress={() => {
-                  setPickerSession((session) => session + 1);
-                  setPickerVisible(true);
-                }}
-              >
-                Pick on map
-              </Button>
-            ) : null}
+            <Button
+              compact
+              mode="outlined"
+              icon="map-marker-radius-outline"
+              onPress={() => {
+                setPickerSession((session) => session + 1);
+                setPickerVisible(true);
+              }}
+            >
+              Pick on map
+            </Button>
             <Button
               compact
               mode="outlined"
@@ -338,15 +335,13 @@ export function TaskFormScreen({ route, navigation }: RootStackScreenProps<'Task
         </View>
       </ScrollView>
 
-      {MAP_AVAILABLE ? (
-        <LocationPickerModal
-          key={pickerSession}
-          visible={pickerVisible}
-          initialCoordinates={coordinates}
-          onDismiss={() => setPickerVisible(false)}
-          onConfirm={onPicked}
-        />
-      ) : null}
+      <LocationPickerModal
+        key={pickerSession}
+        visible={pickerVisible}
+        initialCoordinates={coordinates}
+        onDismiss={() => setPickerVisible(false)}
+        onConfirm={onPicked}
+      />
       <AttachmentViewerModal attachment={preview} onDismiss={() => setPreview(null)} />
       <ConfirmDialog
         visible={discardAction !== null}
